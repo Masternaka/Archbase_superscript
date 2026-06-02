@@ -106,21 +106,22 @@ show_help() {
 install_aur_packages() {
 
   local aur_packages=(
+
       # Utilitaires
-      pacseek
-      ipscan
+      pacseek-bin
+      ipscan-bin
       shelly-bin
 
       # Navigateur internet
       brave-bin
+      helium-browser-bin
 
       # Développement
-      github-desktop
+      github-desktop-bin
       gitkraken
-      visual-studio-code-bin
 
       # Multimédia
-      deadbeef
+      #deadbeef
       spotify
   )
 

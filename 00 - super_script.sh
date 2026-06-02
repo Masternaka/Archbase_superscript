@@ -36,8 +36,21 @@ for script in "${SCRIPTS_SUDO[@]}" "${SCRIPTS_USER[@]}"; do
     SCRIPT_RESULTS["$script"]="En attente"
 done
 
+# Fonction de rafraîchissement du cache sudo
+refresh_sudo() {
+    while true; do
+        sudo -v
+        sleep 60
+    done
+}
+
 # Fonction d'affichage du résumé final (appelée par le trap EXIT)
 show_summary() {
+    # Arrêt du rafraîchisseur sudo
+    if [[ -n "${SUDO_REFRESH_PID:-}" ]]; then
+        kill "$SUDO_REFRESH_PID" 2>/dev/null || true
+    fi
+
     echo -e "\n${YELLOW}==================================================${NC}"
     echo -e "${YELLOW}               RÉSUMÉ DE L'INSTALLATION            ${NC}"
     echo -e "${YELLOW}==================================================${NC}"
@@ -79,6 +92,8 @@ if [[ -z "${SUDO_USER:-}" ]]; then
     exit 1
 fi
 
+export ARCH_CUSTOM_LOGFILE="$LOGFILE"
+
 exec > >(tee -a "$LOGFILE") 2>&1
 
 echo -e "${YELLOW}### Début de la personnalisation - $(date) ###${NC}"
@@ -87,6 +102,8 @@ echo "Log : $LOGFILE"
 echo ""
 
 sudo -v   # Validation du cache sudo
+refresh_sudo &
+SUDO_REFRESH_PID=$!
 
 run_script() {
     local script_name="$1"

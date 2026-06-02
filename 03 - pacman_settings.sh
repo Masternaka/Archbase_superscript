@@ -4,7 +4,7 @@ set -euo pipefail
 
 PACMAN_CONF="/etc/pacman.conf"
 BACKUP_DIR="/etc/pacman.conf.backups"
-LOG_FILE="/var/log/pacman_parallel_downloads.log"
+LOG_FILE="${ARCH_CUSTOM_LOGFILE:-/var/log/pacman_parallel_downloads.log}"
 AUTO_VALUE=""
 SILENT_MODE=false
 RESTORE_MODE=false

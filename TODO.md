@@ -1,0 +1,2 @@
+- [ ] Créer un script pour installer mes alias et fonctions dans le .bashrc (Voir Wiki.md pour explications comment faire)
+- [ ] Mettre mes alias dans le fichier .bash_aliases dans le repo dotfiles

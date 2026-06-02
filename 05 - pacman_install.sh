@@ -142,8 +142,8 @@ install_packages() {
   # Paquets spécifiques à EndeavourOS (conditionnels)
   if is_endeavouros; then
     packages+=(
-      akm
-      eos-update-notifier
+      #akm
+      #eos-update-notifier
     )
     echo -e "${GREEN}Système EndeavourOS détecté - inclusion des paquets spécifiques${RESET}"
   else
@@ -154,12 +154,12 @@ install_packages() {
   packages+=(
       # Utilitaires
       catfish
-      flatpak
+      #flatpak
       flameshot
       gnome-disk-utility
       gparted
       #gufw
-      #firewalld
+      #firewalld # par défaut sur EndeavourOS, mais pas sur Arch, donc à installer manuellement selon les besoins
       firewall-config
       openrgb
       qbittorrent
@@ -168,25 +168,42 @@ install_packages() {
       lshw
       fwupd
       timeshift
-      p7zip
+      7zip
+      stow
 
       # Utilitaires terminal
       btop
       fastfetch
-      yazi
-      neovim
+      #yazi # utiliser le script d'installation de yazi avec mes configs personnalisés
+      zoxide
+      eza
+      fzf
+      bat
+      ripgrep
+      fd
+      tldr
+      starship
+      git
+      curl
+      wget
+
+      # Polices
+      ttf-jetbrains-mono-nerd
+      ttf-meslo-nerd
+      ttf-firacode-nerd
 
       # Sécurité
       keepassxc
 
       # Navigateur internet et email
+      firefox
       thunderbird
       vivaldi
       vivaldi-ffmpeg-codecs
 
       # Multimédia
       strawberry
-      vlc
+      #vlc
       mpv
 
       # Communication
@@ -200,14 +217,20 @@ install_packages() {
       # Virtualisation
       qemu-full
       virt-manager
+      #distrobox
+      #podman
 
-      # Shell et terminal
+      # Terminal
       kitty
+      foot
 
       # Développement
+      micro
       code
       meld
       zed
+      Helix
+      #neovim
   )
 
   local total_packages=${#packages[@]}

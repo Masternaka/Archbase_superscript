@@ -31,14 +31,43 @@ flatpak_user() {
 # ─── Liste des applications Flatpak à installer ───────────────────────────────
 # Format : "app.id.flatpak:Description"
 applications=(
-    "com.usebottles.bottles:Bottles"
-    #"org.dupot.easyflatpak:EasyFlatpak"
-    "io.github.flattool.Warehouse:Warehouse"
-    "com.github.tchx84.Flatseal:Flatseal"
-    "io.github.giantpinkrobots.flatsweep:FlatSweep"
-    "io.github.kolunmi.Bazaar:Bazaar"
-    #"io.github.dvlv.boxbuddyrs:Box Buddy"
-    #"it.mijorus.gearlever:Gearlever"
+
+    # Appstore pour Flatpak
+    "io.github.kolunmi.Bazaar"
+    #"org.dupot.easyflatpak"
+
+    # Logiciels pour gestion des flatpaks
+    "io.github.flattool.Warehouse"
+    "com.github.tchx84.Flatseal"
+    "io.github.giantpinkrobots.flatsweep"
+
+    # Logiciels pour installation de logiciels windows et distrobox
+    "com.usebottles.bottles"
+    "io.github.dvlv.boxbuddyrs"
+
+    # Utilitaires pour service systemd
+    "io.github.plrigaux.sysd-manager"
+
+    # Utilitaire pour la gestion du son
+    "com.github.wwmm.easyeffects"
+
+    # Utilitaire pour gestion des polices
+    "io.github.getnf.embellish"
+
+    # Utilitaire pour git
+    "com.github.Murmele.Gittyup"
+
+    # Utilitaire de transfert de fichiers
+    "org.localsend.localsend_app"
+
+    # Utilitaire de monitoring et de gestion de système
+    "io.missioncenter.MissionCenter"
+
+    # Utilitaire de sauvegarde
+    "org.gnome.World.PikaBackup"
+
+    # Utilitaire de communication
+    "dev.vencord.Vesktop"
 )
 
 # ─── Fonctions utilitaires ────────────────────────────────────────────────────
