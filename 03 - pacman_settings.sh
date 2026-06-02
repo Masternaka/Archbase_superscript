@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -euo pipefail
 
@@ -192,6 +192,13 @@ fi
 current_value=$(get_current_value)
 if [ "$SILENT_MODE" = false ]; then
     echo "Valeur actuelle de ParallelDownloads : $current_value"
+fi
+
+# Détecter si le script est exécuté de manière non-interactive
+if [ -z "$AUTO_VALUE" ] && [ ! -t 0 ]; then
+    AUTO_VALUE="auto"
+    SILENT_MODE=true
+    log_message "Détection automatique activée (stdin non-interactif)"
 fi
 
 # Déterminer la valeur à utiliser

@@ -1,20 +1,6 @@
-#!/bin/bash
-set -euo pipefail
+#!/usr/bin/env bash
 
-###############################################################################
-# Script d'installation des paquets AUR pour Arch/EndeavourOS
-#
-# Utilisation:
-# 1. Rendez-le exécutable: chmod +x install_aur.sh
-# 2. Exécutez-le: sudo ./install_aur.sh [--dry-run]
-#
-# Ce script installe les paquets AUR via yay.
-# Note: Exécutez d'abord install_base.sh avant ce script
-#
-# Options
-# --help : Affiche l'aide et quitte.
-# --dry-run : Simule les installations sans effectuer de modifications.
-###############################################################################
+set -euo pipefail
 
 # Couleurs
 GREEN="\e[32m"
@@ -28,12 +14,16 @@ DRY_RUN=false
 # Fonction de confirmation
 confirm_installation() {
   if [ "$DRY_RUN" = false ]; then
-    echo -e "${YELLOW}Continuer avec l'installation des paquets AUR ? (y/N)${RESET}"
-    read -r -s -n 1 -p "> " response
-    echo
-    if [[ ! "$response" =~ ^[Yy]$ ]]; then
-      echo -e "${YELLOW}Installation annulée.${RESET}"
-      exit 0
+    if [ -t 0 ]; then
+      echo -e "${YELLOW}Continuer avec l'installation des paquets AUR ? (y/N)${RESET}"
+      read -r -s -n 1 -p "> " response
+      echo
+      if [[ ! "$response" =~ ^[Yy]$ ]]; then
+        echo -e "${YELLOW}Installation annulée.${RESET}"
+        exit 0
+      fi
+    else
+      echo -e "${YELLOW}Exécution en mode non-interactif, poursuite de l'installation...${RESET}"
     fi
   fi
 }
@@ -51,9 +41,9 @@ install_aur_package_with_retry() {
   local package="$1"
   local max_attempts=3
   local attempt=1
-  
+
   while [ $attempt -le $max_attempts ]; do
-    
+
     if [ "$DRY_RUN" = false ]; then
       if sudo -u "$SUDO_USER" yay -S --noconfirm --needed "$package"; then
         return 0
@@ -70,7 +60,7 @@ install_aur_package_with_retry() {
       return 0
     fi
   done
-  
+
   return 1
 }
 
@@ -80,8 +70,10 @@ install_yay() {
     echo -e "${YELLOW}yay non détecté. Installation...${RESET}"
     if [ "$DRY_RUN" = false ]; then
       pacman -S --noconfirm --needed base-devel git
-      sudo -u "$SUDO_USER" bash -c '
-        cd /tmp && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si --noconfirm'
+      local build_dir="$USER_HOME/.cache/yay-build"
+      sudo -u "$SUDO_USER" mkdir -p "$build_dir"
+      sudo -u "$SUDO_USER" bash -c "
+        cd '$build_dir' && rm -rf yay && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si --noconfirm"
     else
       echo "DRY-RUN: Installation de yay"
     fi
@@ -112,7 +104,7 @@ show_help() {
 
 # Installation de paquets AUR améliorée
 install_aur_packages() {
-  
+
   local aur_packages=(
       # Utilitaires
       pacseek
@@ -139,7 +131,7 @@ install_aur_packages() {
   for aur in "${aur_packages[@]}"; do
     current_aur_package=$((current_aur_package + 1))
     echo -e "${GREEN}[$current_aur_package/$total_aur_packages] Installation AUR de [$aur]...${RESET}"
-    
+
     if ! install_aur_package_with_retry "$aur"; then
       failed_aur_packages+=("$aur")
       echo -e "${RED}Échec de l'installation AUR de [$aur]${RESET}"
@@ -167,12 +159,12 @@ show_installation_summary() {
   echo -e "${GREEN}=== Résumé de l'installation AUR ===${RESET}"
   echo -e "Utilisateur: $SUDO_USER"
   echo -e "Date: $(date)"
-  
+
   if command -v yay &>/dev/null; then
     local aur_count=$(yay -Qm | wc -l)
     echo -e "Paquets AUR installés: $aur_count"
   fi
-  
+
   echo -e "${GREEN}Installation AUR terminée avec succès !${RESET}"
 }
 
@@ -187,6 +179,8 @@ if [ -z "${SUDO_USER:-}" ]; then
   echo -e "${RED}SUDO_USER n'est pas défini. Veuillez exécuter avec sudo.${RESET}"
   exit 1
 fi
+
+USER_HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)
 
 # Gestion des signaux d'interruption
 trap 'cleanup_on_exit; exit 130' INT TERM
@@ -221,10 +215,10 @@ confirm_installation
 main() {
   # Installation de yay si manquant
   install_yay
-  
+
   # Installation des paquets AUR
   install_aur_packages
-  
+
   # Nettoyage
   cleanup
 

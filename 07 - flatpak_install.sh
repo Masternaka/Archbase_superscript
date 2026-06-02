@@ -1,22 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
 set -euo pipefail
-
-## Ajouter au script l'instalation de Flatpak. Focntinne mais l'installation des applications ne se fait pas.
-
-
-###############################################################################
-# Script d'installation automatisée des applications Flatpak
-#
-# Utilisation:
-# 1. Sauvegardez ce script sous un nom, par exemple: installation_flatpak.sh
-# 2. Rendez-le exécutable: chmod +x installation_flatpak.sh
-# 3. Exécutez-le: sudo ./installation_flatpak.sh [--help] [--dry-run] [--list]
-#
-# Options:
-# --help : Affiche l'aide et quitte
-# --dry-run : Simule les installations sans effectuer de modifications
-# --list : Affiche la liste des applications qui seraient installées
-###############################################################################
 
 # Couleurs
 GREEN="\e[32m"
@@ -30,103 +14,22 @@ DRY_RUN=false
 SHOW_HELP=false
 SHOW_LIST=false
 
-# Configuration du dossier utilisateur
+# ─── Vérification anticipée de SUDO_USER (avant tout usage) ──────────────────
+if [ -z "${SUDO_USER:-}" ]; then
+    echo -e "${RED}SUDO_USER n'est pas défini. Veuillez exécuter avec sudo.${RESET}"
+    exit 1
+fi
+
+# Récupération du home utilisateur réel (après vérification de SUDO_USER)
 USER_HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)
 
-# Fonction d'aide
-show_help() {
-    echo -e "${GREEN}=== Aide du script d'installation Flatpak ===${RESET}"
-    echo ""
-    echo "Ce script permet d'installer automatiquement des applications Flatpak."
-    echo ""
-    echo "UTILISATION:"
-    echo "  sudo ./installation_flatpak.sh [options]"
-    echo ""
-    echo "OPTIONS:"
-    echo "  --help      Affiche cette aide"
-    echo "  --dry-run   Simule les installations sans effectuer de modifications"
-    echo "  --list      Affiche la liste des applications qui seraient installées"
-    echo ""
-    echo "APPLICATIONS INSTALLÉES:"
-    echo "  - Bottles: Gestionnaire de bouteilles pour Wine"
-    echo "  - EasyFlatpak: Interface graphique pour Flatpak"
-    echo "  - Warehouse: Gestionnaire d'applications Flatpak"
-    echo "  - Flatseal: Gestionnaire de permissions Flatpak"
-    echo "  - FlatSweep: Nettoyeur de données Flatpak"
+# Alias pour exécuter flatpak en tant qu'utilisateur réel (pas root)
+flatpak_user() {
+    sudo -u "$SUDO_USER" flatpak "$@"
 }
 
-# Fonction de nettoyage en cas d'interruption
-cleanup_on_exit() {
-    local exit_code=$?
-    if [ $exit_code -ne 0 ]; then
-        echo -e "${RED}Installation interrompue.${RESET}"
-    fi
-}
-
-# Fonction de confirmation
-confirm_installation() {
-    if [ "$DRY_RUN" = false ]; then
-        echo -e "${YELLOW}Continuer avec l'installation des applications Flatpak ? (y/N)${RESET}"
-        read -r -s -n 1 -p "> " response
-        echo
-        if [[ ! "$response" =~ ^[Yy]$ ]]; then
-            echo -e "${YELLOW}Installation annulée.${RESET}"
-            exit 0
-        fi
-    fi
-}
-
-# Installation avec retry automatique
-install_flatpak_with_retry() {
-    local app="$1"
-    local max_attempts=3
-    local attempt=1
-    
-    while [ $attempt -le $max_attempts ]; do
-        if [ "$DRY_RUN" = false ]; then
-            if flatpak install -y flathub "$app"; then
-                return 0
-            else
-                attempt=$((attempt + 1))
-                if [ $attempt -le $max_attempts ]; then
-                    echo -e "${YELLOW}Nouvelle tentative dans 5 secondes... (tentative $attempt/$max_attempts)${RESET}"
-                    sleep 5
-                fi
-                continue
-            fi
-        else
-            echo "DRY-RUN: flatpak install -y flathub $app"
-            return 0
-        fi
-    done
-    
-    return 1
-}
-
-# Vérifie si flatpak est installé
-check_flatpak_installed() {
-    if ! command -v flatpak &> /dev/null; then
-        echo -e "${RED}❌ Flatpak n'est pas installé. Veuillez l'installer d'abord avec:${RESET}"
-        echo -e "${YELLOW}sudo pacman -S flatpak${RESET}"
-        exit 1
-    fi
-}
-
-# Vérifie et ajoute le remote Flathub
-setup_flathub_remote() {
-    if ! flatpak remotes | grep -q flathub; then
-        echo -e "${BLUE}➕ Ajout du remote Flathub...${RESET}"
-        if [ "$DRY_RUN" = false ]; then
-            flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-        else
-            echo "DRY-RUN: flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo"
-        fi
-    else
-        echo -e "${GREEN}✓ Remote Flathub déjà configuré${RESET}"
-    fi
-}
-
-# Liste des applications Flatpak à installer
+# ─── Liste des applications Flatpak à installer ───────────────────────────────
+# Format : "app.id.flatpak:Description"
 applications=(
     "com.usebottles.bottles:Bottles"
     #"org.dupot.easyflatpak:EasyFlatpak"
@@ -138,20 +41,125 @@ applications=(
     #"it.mijorus.gearlever:Gearlever"
 )
 
-# Fonction pour afficher la liste des applications
+# ─── Fonctions utilitaires ────────────────────────────────────────────────────
+
+show_help() {
+    echo -e "${GREEN}=== Aide du script d'installation Flatpak ===${RESET}"
+    echo ""
+    echo "Ce script permet d'installer automatiquement des applications Flatpak."
+    echo ""
+    echo "UTILISATION:"
+    echo "  sudo ./07\ -\ flatpak_install.sh [options]"
+    echo ""
+    echo "OPTIONS:"
+    echo "  --help      Affiche cette aide"
+    echo "  --dry-run   Simule les installations sans effectuer de modifications"
+    echo "  --list      Affiche la liste des applications qui seraient installées"
+    echo ""
+    echo "APPLICATIONS INSTALLÉES:"
+    for app_info in "${applications[@]}"; do
+        local app_id="${app_info%%:*}"
+        local app_desc="${app_info##*:}"
+        echo "  - ${app_desc} (${app_id})"
+    done
+}
+
+cleanup_on_exit() {
+    local exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+        echo -e "${RED}Installation interrompue (code: $exit_code).${RESET}"
+    fi
+}
+
+# Confirmation interactive — ignorée si stdin n'est pas un terminal (ex: appelé depuis super_script.sh)
+confirm_installation() {
+    if [ "$DRY_RUN" = false ]; then
+        if [ -t 0 ]; then
+            echo -e "${YELLOW}Continuer avec l'installation des applications Flatpak ? (y/N)${RESET}"
+            read -r -s -n 1 -p "> " response
+            echo
+            if [[ ! "$response" =~ ^[Yy]$ ]]; then
+                echo -e "${YELLOW}Installation annulée.${RESET}"
+                exit 0
+            fi
+        else
+            echo -e "${YELLOW}[INFO] stdin non interactif — confirmation automatique.${RESET}"
+        fi
+    fi
+}
+
+# ─── Vérifications préliminaires ──────────────────────────────────────────────
+
+check_flatpak_installed() {
+    if ! command -v flatpak &> /dev/null; then
+        echo -e "${RED}❌ Flatpak n'est pas installé. Veuillez l'installer d'abord avec:${RESET}"
+        echo -e "${YELLOW}sudo pacman -S flatpak${RESET}"
+        exit 1
+    fi
+    echo -e "${GREEN}✓ Flatpak est installé : $(flatpak --version)${RESET}"
+}
+
+# Vérifie et ajoute le remote Flathub pour l'utilisateur réel
+setup_flathub_remote() {
+    echo -e "${BLUE}Vérification du remote Flathub...${RESET}"
+    if flatpak_user remotes --columns=name 2>/dev/null | grep -q "^flathub$"; then
+        echo -e "${GREEN}✓ Remote Flathub déjà configuré pour $SUDO_USER${RESET}"
+    else
+        echo -e "${BLUE}➕ Ajout du remote Flathub pour $SUDO_USER...${RESET}"
+        if [ "$DRY_RUN" = false ]; then
+            flatpak_user remote-add --if-not-exists flathub \
+                https://flathub.org/repo/flathub.flatpakrepo
+            echo -e "${GREEN}✓ Remote Flathub ajouté${RESET}"
+        else
+            echo "DRY-RUN: flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo"
+        fi
+    fi
+}
+
+# ─── Affichage de la liste ────────────────────────────────────────────────────
+
 show_applications_list() {
     echo -e "${GREEN}=== Applications Flatpak qui seront installées ===${RESET}"
     echo ""
     for app_info in "${applications[@]}"; do
-        app_id="${app_info%%:*}"
-        app_desc="${app_info##*:}"
+        local app_id="${app_info%%:*}"
+        local app_desc="${app_info##*:}"
         echo -e "${BLUE}•${RESET} $app_desc"
         echo -e "  ${YELLOW}ID:${RESET} $app_id"
         echo ""
     done
 }
 
-# Installation des applications
+# ─── Installation avec retry ──────────────────────────────────────────────────
+
+install_flatpak_with_retry() {
+    local app="$1"
+    local max_attempts=3
+    local attempt=1
+
+    while [ $attempt -le $max_attempts ]; do
+        if [ "$DRY_RUN" = false ]; then
+            # Installation en tant qu'utilisateur réel (pas root)
+            if flatpak_user install -y flathub "$app"; then
+                return 0
+            else
+                attempt=$((attempt + 1))
+                if [ $attempt -le $max_attempts ]; then
+                    echo -e "${YELLOW}Nouvelle tentative dans 5 secondes... (tentative $attempt/$max_attempts)${RESET}"
+                    sleep 5
+                fi
+            fi
+        else
+            echo "DRY-RUN: flatpak install -y flathub $app (en tant que $SUDO_USER)"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+# ─── Installation de toutes les applications ──────────────────────────────────
+
 install_applications() {
     local total_apps=${#applications[@]}
     local current_app=0
@@ -163,36 +171,39 @@ install_applications() {
 
     for app_info in "${applications[@]}"; do
         current_app=$((current_app + 1))
-        app_id="${app_info%%:*}"
-        app_desc="${app_info##*:}"
-        
-        echo -e "${GREEN}[$current_app/$total_apps] Installation de $app_desc...${RESET}"
-        
-        # Vérifier si l'application est déjà installée
-        if flatpak list | grep -qE "\s$app_id\s"; then
-            echo -e "${YELLOW}[$app_id] déjà installé.${RESET}"
+        local app_id="${app_info%%:*}"
+        local app_desc="${app_info##*:}"
+
+        echo -e "${BLUE}[$current_app/$total_apps] $app_desc${RESET} ($app_id)"
+
+        # Vérifier si l'application est déjà installée (via l'utilisateur réel)
+        # --columns=application donne uniquement l'App ID, sans ambiguïté
+        if flatpak_user list --app --columns=application 2>/dev/null | grep -qx "$app_id"; then
+            echo -e "${YELLOW}  ↳ Déjà installé, ignoré.${RESET}"
             success_count=$((success_count + 1))
         else
-            echo -e "${GREEN}Installation de [$app_id]...${RESET}"
             if install_flatpak_with_retry "$app_id"; then
-                echo -e "${GREEN}✓ [$app_id] installé avec succès${RESET}"
+                echo -e "${GREEN}  ✓ Installé avec succès${RESET}"
                 success_count=$((success_count + 1))
             else
                 failed_apps+=("$app_id")
-                echo -e "${RED}✗ Échec de l'installation de [$app_id]${RESET}"
+                echo -e "${RED}  ✗ Échec de l'installation${RESET}"
             fi
         fi
         echo ""
     done
 
-    # Rapport final
-    echo -e "${GREEN}=== Résumé de l'installation ===${RESET}"
-    echo -e "Applications installées avec succès: $success_count/$total_apps"
-    
+    # ─── Rapport final ────────────────────────────────────────────────────────
+    echo -e "${GREEN}=== Résumé ===${RESET}"
+    echo -e "Applications réussies : $success_count / $total_apps"
+
     if [ ${#failed_apps[@]} -gt 0 ]; then
-        echo -e "${RED}Applications non installées: ${failed_apps[*]}${RESET}"
+        echo -e "${RED}Applications non installées :${RESET}"
+        for app in "${failed_apps[@]}"; do
+            echo -e "  ${RED}✗ $app${RESET}"
+        done
     fi
-    
+
     if [ "$DRY_RUN" = false ]; then
         echo -e "${GREEN}✅ Installation terminée.${RESET}"
     else
@@ -200,21 +211,24 @@ install_applications() {
     fi
 }
 
-# Fonction de nettoyage final
+# ─── Nettoyage final ──────────────────────────────────────────────────────────
+
 cleanup() {
     if [ "$DRY_RUN" = false ]; then
-        echo -e "${BLUE}🧹 Nettoyage du cache Flatpak...${RESET}"
-        if flatpak uninstall --unused -y; then
-            echo -e "${GREEN}✓ Cache nettoyé avec succès${RESET}"
+        echo -e "${BLUE}🧹 Suppression des runtimes Flatpak inutilisés...${RESET}"
+        # Nettoyage côté utilisateur réel
+        if flatpak_user uninstall --unused -y 2>/dev/null; then
+            echo -e "${GREEN}✓ Nettoyage terminé${RESET}"
         else
-            echo -e "${YELLOW}⚠ Aucun paquet inutilisé à nettoyer${RESET}"
+            echo -e "${YELLOW}⚠ Aucun paquet inutilisé à supprimer${RESET}"
         fi
     else
-        echo "DRY-RUN: Nettoyage du cache Flatpak"
+        echo "DRY-RUN: Nettoyage des runtimes inutilisés"
     fi
 }
 
-# Gestion des arguments
+# ─── Gestion des arguments ────────────────────────────────────────────────────
+
 for arg in "$@"; do
     case $arg in
         --help)
@@ -235,49 +249,42 @@ for arg in "$@"; do
     esac
 done
 
-# Vérification du mode superutilisateur
+# ─── Vérification du mode superutilisateur ────────────────────────────────────
 if [ "$EUID" -ne 0 ]; then
     echo -e "${RED}Veuillez exécuter ce script avec sudo.${RESET}"
     exit 1
 fi
 
-# Vérification que SUDO_USER est défini
-if [ -z "${SUDO_USER:-}" ]; then
-    echo -e "${RED}SUDO_USER n'est pas défini. Veuillez exécuter avec sudo.${RESET}"
-    exit 1
-fi
-
-# Gestion des signaux d'interruption
+# ─── Gestion des signaux d'interruption ──────────────────────────────────────
 trap 'cleanup_on_exit; exit 130' INT TERM
 trap 'cleanup_on_exit' EXIT
 
-# Fonction principale
+# ─── Fonction principale ──────────────────────────────────────────────────────
 main() {
     echo -e "${GREEN}=== Script d'installation des applications Flatpak ===${RESET}"
-    echo -e "Utilisateur: $SUDO_USER"
-    echo -e "Date: $(date)"
+    echo -e "Utilisateur : $SUDO_USER (home: $USER_HOME)"
+    echo -e "Date        : $(date)"
     echo -e "Mode dry-run: $DRY_RUN"
     echo ""
-    
+
     # Afficher la liste si demandé
     if [ "$SHOW_LIST" = true ]; then
         show_applications_list
         exit 0
     fi
-    
+
     # Vérifications préliminaires
     check_flatpak_installed
     setup_flathub_remote
-    
-    # Demander confirmation avant de continuer
+
+    # Confirmation
     confirm_installation
-    
+
     # Installation
     install_applications
-    
+
     # Nettoyage
     cleanup
 }
 
-# Exécution
 main

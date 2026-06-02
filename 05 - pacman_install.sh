@@ -1,17 +1,6 @@
-#!/bin/bash
-set -euo pipefail
+#!/usr/bin/env bash
 
-###############################################################################
-# Script d'installation des paquets de base pour Arch/EndeavourOS
-#
-# Utilisation:
-# 1. Rendez-le exécutable: chmod +x install_base.sh
-# 2. Exécutez-le: sudo ./install_base.sh [--dry-run]
-#
-# Options
-# --help : Affiche l'aide et quitte.
-# --dry-run : Simule les installations sans effectuer de modifications.
-###############################################################################
+set -euo pipefail
 
 # Couleurs
 GREEN="\e[32m"
@@ -19,21 +8,22 @@ YELLOW="\e[33m"
 RED="\e[31m"
 RESET="\e[0m"
 
-# Configuration du dossier utilisateur
-USER_HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)
-
 # Options
 DRY_RUN=false
 
 # Fonction de confirmation
 confirm_installation() {
   if [ "$DRY_RUN" = false ]; then
-    echo -e "${YELLOW}Continuer avec l'installation ? (y/N)${RESET}"
-    read -r -s -n 1 -p "> " response
-    echo
-    if [[ ! "$response" =~ ^[Yy]$ ]]; then
-      echo -e "${YELLOW}Installation annulée.${RESET}"
-      exit 0
+    if [ -t 0 ]; then
+      echo -e "${YELLOW}Continuer avec l'installation ? (y/N)${RESET}"
+      read -r -s -n 1 -p "> " response
+      echo
+      if [[ ! "$response" =~ ^[Yy]$ ]]; then
+        echo -e "${YELLOW}Installation annulée.${RESET}"
+        exit 0
+      fi
+    else
+      echo -e "${YELLOW}Exécution en mode non-interactif, poursuite de l'installation...${RESET}"
     fi
   fi
 }
@@ -51,9 +41,9 @@ install_package_with_retry() {
   local package="$1"
   local max_attempts=3
   local attempt=1
-  
+
   while [ $attempt -le $max_attempts ]; do
-    
+
     if [ "$DRY_RUN" = false ]; then
       if pacman -S --noconfirm --needed "$package"; then
         return 0
@@ -70,7 +60,7 @@ install_package_with_retry() {
       return 0
     fi
   done
-  
+
   return 1
 }
 
@@ -146,9 +136,9 @@ is_endeavouros() {
 
 # Fonction installation de paquets
 install_packages() {
-  
+
   local packages=()
-  
+
   # Paquets spécifiques à EndeavourOS (conditionnels)
   if is_endeavouros; then
     packages+=(
@@ -227,7 +217,7 @@ install_packages() {
   for pkg in "${packages[@]}"; do
     current_package=$((current_package + 1))
     echo -e "${GREEN}[$current_package/$total_packages] Traitement de [$pkg]...${RESET}"
-    
+
     if pacman -Qi "$pkg" &>/dev/null; then
       echo -e "${YELLOW}[$pkg] déjà installé.${RESET}"
     else
@@ -276,6 +266,9 @@ if [ -z "${SUDO_USER:-}" ]; then
   exit 1
 fi
 
+# Configuration du dossier utilisateur
+USER_HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+
 # Gestion des signaux d'interruption
 trap 'cleanup_on_exit; exit 130' INT TERM
 trap 'cleanup_on_exit' EXIT
@@ -311,13 +304,13 @@ main() {
   # Sauvegarde et préparation
   backup_installed_packages
   create_recovery_script
-  
+
   # Mise à jour système
   update_system
 
   # Installation des paquets de base
   install_packages
-  
+
   # Nettoyage
   cleanup
 

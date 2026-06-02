@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -e
+set -euo pipefail
 
 # Couleurs pour une meilleure lisibilité
 RED='\033[0;31m'
@@ -30,7 +30,7 @@ print_error() {
 check_root() {
     if [[ $EUID -eq 0 ]]; then
         print_error "Ce script ne doit pas être exécuté en tant que root"
-        print_info "Utilisez: ./install_Chaotic_fixed.sh"
+        print_info "Utilisez: ./04 - chaotic_install.sh"
         exit 1
     fi
 }
@@ -46,7 +46,7 @@ check_pacman() {
 # Vérifier la connexion internet
 check_internet() {
     print_info "Vérification de la connexion internet..."
-    if ! ping -c 1 archlinux.org &> /dev/null; then
+    if ! ping -c 1 archlinux.org &> /dev/null && ! curl -s --head --connect-timeout 5 https://www.archlinux.org &> /dev/null; then
         print_error "Pas de connexion internet. Veuillez vérifier votre connexion."
         exit 1
     fi
@@ -70,66 +70,66 @@ install_dependencies() {
 # Ajouter la clé GPG principale de Chaotic-AUR
 add_primary_key() {
     print_info "Ajout de la clé GPG principale de Chaotic-AUR..."
-    
+
     # Recevoir la clé depuis le serveur de clés
     sudo pacman-key --recv-key 3056513887B78AEB --keyserver keyserver.ubuntu.com
-    
+
     # Signer localement la clé pour lui faire confiance
     sudo pacman-key --lsign-key 3056513887B78AEB
-    
+
     print_success "Clé GPG principale ajoutée et signée"
 }
 
 # Installer chaotic-keyring et chaotic-mirrorlist
 install_chaotic_packages() {
     print_info "Installation de chaotic-keyring et chaotic-mirrorlist..."
-    
+
     # URLs des paquets
     KEYRING_URL='https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst'
     MIRRORLIST_URL='https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'
-    
+
     # Télécharger et installer les paquets
     cd /tmp
-    
+
     print_info "Téléchargement de chaotic-keyring..."
     wget -q --show-progress "$KEYRING_URL" -O chaotic-keyring.pkg.tar.zst
-    
+
     print_info "Téléchargement de chaotic-mirrorlist..."
     wget -q --show-progress "$MIRRORLIST_URL" -O chaotic-mirrorlist.pkg.tar.zst
-    
+
     print_info "Installation des paquets..."
     sudo pacman -U --noconfirm chaotic-keyring.pkg.tar.zst chaotic-mirrorlist.pkg.tar.zst
-    
+
     # Nettoyage
     rm -f chaotic-keyring.pkg.tar.zst chaotic-mirrorlist.pkg.tar.zst
-    
+
     print_success "chaotic-keyring et chaotic-mirrorlist installés"
 }
 
 # Ajouter le dépôt Chaotic-AUR à pacman.conf
 add_chaotic_repo() {
     print_info "Ajout du dépôt Chaotic-AUR à pacman.conf..."
-    
+
     PACMAN_CONF="/etc/pacman.conf"
-    
+
     # Vérifier si le dépôt existe déjà
     if grep -q "\[chaotic-aur\]" "$PACMAN_CONF"; then
         print_warning "Le dépôt Chaotic-AUR existe déjà dans pacman.conf"
         print_info "Suppression de l'ancienne entrée..."
         sudo sed -i '/\[chaotic-aur\]/,/^$/d' "$PACMAN_CONF"
     fi
-    
+
     # Sauvegarde du fichier original
     sudo cp "$PACMAN_CONF" "$PACMAN_CONF.backup.$(date +%Y%m%d_%H%M%S)"
     print_info "Sauvegarde créée: $PACMAN_CONF.backup.$(date +%Y%m%d_%H%M%S)"
-    
+
     # Ajouter le dépôt avec Include pour utiliser mirrorlist
     sudo tee -a "$PACMAN_CONF" > /dev/null << 'EOF'
 
 [chaotic-aur]
 Include = /etc/pacman.d/chaotic-mirrorlist
 EOF
-    
+
     print_success "Dépôt Chaotic-AUR ajouté à pacman.conf"
 }
 
@@ -143,15 +143,15 @@ update_pacman_db() {
 # Vérifier l'installation
 verify_installation() {
     print_info "Vérification de l'installation..."
-    
+
     # Vérifier si le dépôt est dans la liste
     if pacman -Sl chaotic-aur &> /dev/null; then
         print_success "Le dépôt Chaotic-AUR est correctement installé et accessible"
-        
+
         # Afficher quelques statistiques
         local package_count=$(pacman -Sl chaotic-aur | wc -l)
         print_info "Nombre de paquets disponibles dans Chaotic-AUR: $package_count"
-        
+
         echo
         print_success "═══════════════════════════════════════════════════"
         print_success "  Installation terminée avec succès!"
@@ -182,11 +182,11 @@ main() {
     print_info "  Installation du dépôt Chaotic-AUR"
     print_info "═══════════════════════════════════════════════════"
     echo
-    
+
     check_root
     check_pacman
     check_internet
-    
+
     print_warning "Ce script va:"
     print_warning "  1. Mettre à jour votre système"
     print_warning "  2. Installer les dépendances nécessaires"
@@ -196,15 +196,18 @@ main() {
     echo
     print_warning "Assurez-vous de comprendre ces modifications"
     echo
-    read -p "Voulez-vous continuer? (y/N): " -n 1 -r
-    echo
-    echo
-    
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        print_info "Installation annulée par l'utilisateur"
-        exit 0
+    if [[ -t 0 ]]; then
+        read -p "Voulez-vous continuer? (y/N): " -n 1 -r
+        echo
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            print_info "Installation annulée par l'utilisateur"
+            exit 0
+        fi
+    else
+        print_info "Exécution en mode non-interactif, poursuite de l'installation..."
     fi
-    
+
     update_system
     install_dependencies
     add_primary_key
@@ -212,7 +215,7 @@ main() {
     add_chaotic_repo
     update_pacman_db
     verify_installation
-    
+
     echo
     print_success "Installation complète! Profitez de Chaotic-AUR! 🎉"
     echo
