@@ -152,76 +152,7 @@ install_packages() {
 
   # Paquets communs
   packages+=(
-      # Utilitaires
-      catfish
-      flameshot
-      gnome-disk-utility
-      gparted
-      #firewalld
-      #firewall-config
-      openrgb
-      qbittorrent
-      transmission-qt
-      distrobox
-      lshw
-      fwupd
-      timeshift
-      7zip
-      stow
-
-      # Utilitaires terminal
-      btop
-      fastfetch
-      tldr
-      starship
-      git
-      curl
-      wget
-
-      # Polices
-      ttf-jetbrains-mono-nerd
-      ttf-meslo-nerd
-      ttf-firacode-nerd
-
-      # Sécurité
-      keepassxc
-
-      # Navigateur internet et email
-      firefox
-      thunderbird
-      vivaldi
-      vivaldi-ffmpeg-codecs
-
-      # Multimédia
-      strawberry
-      #vlc
-      mpv
-
-      # Communication
-      discord
-
-      # Office et notes
-      libreoffice-fresh
-      libreoffice-fresh-fr
-      obsidian
-
-      # Virtualisation
-      qemu-full
-      virt-manager
-      #distrobox
-      #podman
-
-      # Terminal
-      kitty
-      foot
-
-      # Développement
-      micro
-      code
-      meld
-      zed
-      Helix
-      #neovim
+      
   )
 
   local total_packages=${#packages[@]}
