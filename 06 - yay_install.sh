@@ -114,15 +114,25 @@ install_aur_packages() {
 
       # Navigateur internet
       brave-bin
+      brave-origin-bin
       helium-browser-bin
 
       # Développement
       github-desktop-bin
       gitkraken
+      fresh-editor-bin
 
       # Multimédia
       #deadbeef
       spotify
+
+      # Office et notes
+      helixnotes-appimage-bin
+      wps-office
+
+      # AI
+      deepseek-reasonix-tui-bin
+      deepseek-reasonix-desktop-bin
   )
 
   local total_aur_packages=${#aur_packages[@]}
